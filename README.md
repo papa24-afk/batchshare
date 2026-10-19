@@ -1,10 +1,16 @@
-# BatchShare 📦
+<p align="center">
+  <img src="docs/images/logo.png" alt="BatchShare Logo" width="240" style="border-radius: 24px;">
+</p>
 
-[![Latest Release](https://img.shields.io/github/v/release/papa24-afk/batchshare?color=blue&label=Release)](https://github.com/papa24-afk/batchshare/releases/latest)
-[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-brightgreen)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.22-purple)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4)](https://developer.android.com/jetpack/compose)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<h1 align="center">BatchShare 📦</h1>
+
+<p align="center">
+  <a href="https://github.com/papa24-afk/batchshare/releases/latest"><img src="https://img.shields.io/github/v/release/papa24-afk/batchshare?color=blue&label=Release" alt="Latest Release"></a>
+  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android%208.0%2B-brightgreen" alt="Platform"></a>
+  <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-1.9.22-purple" alt="Kotlin"></a>
+  <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4" alt="Jetpack Compose"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
 > **The ultimate Android staging tray & zip bundler.**  
 > Effortlessly collect, bundle, and share multiple documents and files from **WhatsApp, Telegram, Google Drive, Chrome, and your File Manager** to any app — without restrictions.
