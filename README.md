@@ -11,18 +11,22 @@
 
 ---
 
-## 🎯 The Problem BatchShare Solves
+## 🎯 Universal Staging Tray — Works Across ALL Apps
 
-On the standard **WhatsApp** Android app, you cannot share multiple documents or files at once to another app (like Telegram, Google Drive, or Gmail). When you select multiple documents in a chat, WhatsApp removes the external share button and only lets you forward inside WhatsApp itself. If you want to send several files to Telegram or an email, you are forced to share them **one by one, repeatedly switching apps**.
+While **BatchShare** is famous for eliminating the frustrating limitation on **WhatsApp** (where you cannot externally share multiple documents at once), it is built as a **universal staging tray for your entire Android system**.
 
-**BatchShare solves this limitation permanently.**
+It works seamlessly with **any app** on your phone:
+- 💬 **Messaging**: WhatsApp, Telegram, Signal, Discord, Slack, Messenger
+- 🌐 **Browsers**: Chrome, Firefox, Brave, Edge, Samsung Internet
+- 📁 **File Managers**: Google Files, Samsung My Files, Solid Explorer, Mi File Manager
+- ☁️ **Cloud & Productivity**: Google Drive, Gmail, Outlook, Dropbox, OneDrive
+- 🖼️ **Media**: Gallery, Google Photos, Downloads
 
-It acts as a smart, temporary **holding box (staging tray)**:
-1. Share Document 1 from WhatsApp to **BatchShare** &rarr; BatchShare catches and holds it.
-2. Share Document 2 from WhatsApp to **BatchShare** &rarr; BatchShare holds it alongside Document 1.
-3. Share as many files as you need from any chat or app.
-4. When ready, tap **"Zip & Share"** (or **"Share Raw"**) &rarr; BatchShare bundles everything and opens Android's system share menu to send to Telegram, WhatsApp, Gmail, Drive, or anywhere else!
-5. BatchShare **auto-clears the holding box and closes itself**, leaving your phone clean and ready for your next batch.
+### The Workflow:
+1. **Share from anywhere**: Send files one by one or in batches from **any app or chat** to **BatchShare**.
+2. **BatchShare collects and holds them**: Each incoming file is staged in your temporary holding tray with duplicate checks and file badge indicators.
+3. **Zip & Share or Share Raw**: Bundle everything into an encrypted/renamed `.zip` archive or send them raw directly to Telegram, Drive, Gmail, or back into WhatsApp.
+4. **Auto-Clear & Close**: Once shared, BatchShare automatically wipes temporary files and exits your recent apps cleanly.
 
 ---
 
@@ -48,13 +52,26 @@ It acts as a smart, temporary **holding box (staging tray)**:
 
 ---
 
-## 📱 Screenshots & Workflow
+## 📱 Workflow Diagram
 
 ```
-[ WhatsApp Chat ]              [ BatchShare Holding Box ]             [ Android System Chooser ]
-   Document 1 ----Share----\                                         /---> Telegram
-   Document 2 ----Share-----> [ 📦 3 Files Held (14.8 MB) ] --Zip--> ----> Google Drive
-   Document 3 ----Share----/   [  Zip & Share  |  Share Raw  ]       \---> Gmail / WhatsApp
+[ Any App: WhatsApp / Telegram / Chrome / Files ]
+                      │
+       (Share 1-by-1 or multi-select into BatchShare)
+                      ▼
+         [ 📦 BatchShare Holding Tray ]
+         • Collects documents, images, videos
+         • Color-coded badges & previews
+         • Duplicate prevention & AES-256 password
+                      │
+         ┌────────────┴────────────┐
+         ▼                         ▼
+   [ Zip & Share ]            [ Share Raw ]
+         │                         │
+         └────────────┬────────────┘
+                      ▼
+       [ Android System Share Menu ]
+       • Telegram / WhatsApp / Drive / Gmail / etc.
 ```
 
 ---
