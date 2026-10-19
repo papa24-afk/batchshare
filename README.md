@@ -38,6 +38,7 @@ It works seamlessly with **any app** on your phone:
 
 ## ✨ Key Features
 
+- 🫧 **Floating Bubble Tray (Chat-Head Mode)**: Never leave your conversation! When enabled, sharing files stages them into a floating draggable bubble at your screen edge with a live counter badge. Tap to expand a compact floating mini-tray to zip & share or review files on the fly.
 - 📥 **Universal Holding Box**: Accumulate files from WhatsApp, Telegram, Chrome, Gallery, or Downloads one-by-one or in batches.
 - 🗜️ **Fast Zip & Share**: Compress all staged documents into a clean `.zip` archive in a split second.
 - 📂 **Share Raw (Unzipped)**: Prefer not to zip? Tap **Share Raw** to send all your files individually at once directly to Telegram or other apps.

@@ -90,18 +90,60 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = buildNotification(context, files, openPendingIntent, zipPendingIntent, clearPendingIntent)
+        manager.notify(NOTIFICATION_ID, notification)
+    }
+
+    fun buildNotification(
+        context: Context,
+        files: List<File>,
+        openIntent: PendingIntent? = null,
+        zipIntent: PendingIntent? = null,
+        clearIntent: PendingIntent? = null
+    ): android.app.Notification {
+        ensureChannel(context)
+        val totalBytes = files.sumOf { it.length() }
+        val sizeStr = formatFileSize(totalBytes)
+        val countStr = "${files.size} file${if (files.size == 1) "" else "s"}"
+
+        val op = openIntent ?: PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, BatchShareActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val zp = zipIntent ?: PendingIntent.getActivity(
+            context,
+            1,
+            Intent(context, BatchShareActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_AUTO_ZIP, true)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val cp = clearIntent ?: PendingIntent.getBroadcast(
+            context,
+            2,
+            Intent(context, NotificationActionReceiver::class.java).apply {
+                action = ACTION_CLEAR
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("BatchShare • $countStr ($sizeStr)")
             .setContentText("Files waiting in holding box")
-            .setSmallIcon(android.R.drawable.sym_def_app_icon)
-            .setContentIntent(openPendingIntent)
+            .setSmallIcon(com.batchshare.wa.R.mipmap.ic_launcher)
+            .setContentIntent(op)
             .setOngoing(true)
             .setSilent(true)
-            .addAction(android.R.drawable.ic_menu_share, "Zip & Share", zipPendingIntent)
-            .addAction(android.R.drawable.ic_menu_delete, "Clear", clearPendingIntent)
+            .addAction(android.R.drawable.ic_menu_share, "Zip & Share", zp)
+            .addAction(android.R.drawable.ic_menu_delete, "Clear", cp)
             .build()
-
-        manager.notify(NOTIFICATION_ID, notification)
     }
 
     fun cancelNotification(context: Context) {

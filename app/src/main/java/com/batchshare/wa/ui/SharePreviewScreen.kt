@@ -47,6 +47,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -112,6 +114,8 @@ fun SharePreviewScreen(
     onOpenFile: ((File) -> Unit)? = null,
     onRemoveFile: ((File) -> Unit)? = null,
     onClearAll: (() -> Unit)? = null,
+    isBubbleEnabled: Boolean = false,
+    onToggleBubble: ((Boolean) -> Unit)? = null,
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -421,6 +425,14 @@ fun SharePreviewScreen(
                         }
                     }
 
+                    if (onToggleBubble != null) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        FloatingBubbleToggleCard(
+                            isBubbleEnabled = isBubbleEnabled,
+                            onToggleBubble = onToggleBubble
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(36.dp))
 
                     Text(
@@ -438,6 +450,15 @@ fun SharePreviewScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (onToggleBubble != null) {
+                    item {
+                        FloatingBubbleToggleCard(
+                            isBubbleEnabled = isBubbleEnabled,
+                            onToggleBubble = onToggleBubble
+                        )
+                    }
+                }
+
                 item {
                     // Archive Settings Card (Name & Password)
                     Card(
@@ -597,3 +618,59 @@ fun FileListItem(
         }
     }
 }
+
+@Composable
+fun FloatingBubbleToggleCard(
+    isBubbleEnabled: Boolean,
+    onToggleBubble: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "🫧",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "Floating Bubble Tray",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (isBubbleEnabled) "Active on screen • Stay in your chat" else "Disabled • Tap to enable overlay",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isBubbleEnabled) Color(0xFF00D2FF) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Switch(
+                checked = isBubbleEnabled,
+                onCheckedChange = { onToggleBubble(it) },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF0070F3),
+                    checkedBorderColor = Color(0xFF00D2FF)
+                )
+            )
+        }
+    }
+}
+

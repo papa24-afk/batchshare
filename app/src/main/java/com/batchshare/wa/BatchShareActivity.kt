@@ -17,7 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import com.batchshare.wa.core.BubblePreferences
 import com.batchshare.wa.core.FileCollector
+import com.batchshare.wa.core.FloatingBubbleService
 import com.batchshare.wa.core.NotificationActionReceiver
 import com.batchshare.wa.core.NotificationHelper
 import com.batchshare.wa.core.ShareLauncher
@@ -33,12 +35,13 @@ class BatchShareActivity : ComponentActivity() {
 
     private val filesList = mutableStateListOf<File>()
     private val isLoading = mutableStateOf(false)
+    private val isBubbleEnabled = mutableStateOf(false)
 
     private val pickFilesLauncher = registerForActivityResult(
         ActivityResultContracts.OpenMultipleDocuments()
     ) { uris ->
         if (!uris.isNullOrEmpty()) {
-            stageUris(uris)
+            stageUris(uris, isExternalShare = false)
         }
     }
 
@@ -50,11 +53,29 @@ class BatchShareActivity : ComponentActivity() {
         }
     }
 
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val granted = BubblePreferences.canDrawOverlays(this)
+        isBubbleEnabled.value = granted && BubblePreferences.isBubbleEnabled(this)
+        if (granted) {
+            Toast.makeText(this, "Floating Bubble enabled 🫧", Toast.LENGTH_SHORT).show()
+            if (filesList.isNotEmpty()) {
+                FloatingBubbleService.start(this)
+            }
+        } else {
+            Toast.makeText(this, "Overlay permission not granted", Toast.LENGTH_SHORT).show()
+            BubblePreferences.setBubbleEnabled(this, false)
+            isBubbleEnabled.value = false
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         refreshStagedFiles()
+        isBubbleEnabled.value = BubblePreferences.isBubbleEnabled(this) && BubblePreferences.canDrawOverlays(this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -87,12 +108,34 @@ class BatchShareActivity : ComponentActivity() {
                         filesList.clear()
                         filesList.addAll(updated)
                         NotificationHelper.updateNotification(this, filesList)
+                        FloatingBubbleService.update(this)
                     },
                     onClearAll = {
                         FileCollector.clearStagedFiles(this)
                         filesList.clear()
                         NotificationHelper.cancelNotification(this)
+                        FloatingBubbleService.stop(this)
                         Toast.makeText(this, "Cleared holding box", Toast.LENGTH_SHORT).show()
+                    },
+                    isBubbleEnabled = isBubbleEnabled.value,
+                    onToggleBubble = { enable ->
+                        if (enable) {
+                            if (BubblePreferences.canDrawOverlays(this)) {
+                                BubblePreferences.setBubbleEnabled(this, true)
+                                isBubbleEnabled.value = true
+                                Toast.makeText(this, "Floating Bubble enabled 🫧", Toast.LENGTH_SHORT).show()
+                                if (filesList.isNotEmpty()) {
+                                    FloatingBubbleService.start(this)
+                                }
+                            } else {
+                                overlayPermissionLauncher.launch(BubblePreferences.requestOverlayPermissionIntent(this))
+                            }
+                        } else {
+                            BubblePreferences.setBubbleEnabled(this, false)
+                            isBubbleEnabled.value = false
+                            FloatingBubbleService.stop(this)
+                            Toast.makeText(this, "Floating Bubble disabled", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     isLoading = isLoading.value
                 )
@@ -100,6 +143,12 @@ class BatchShareActivity : ComponentActivity() {
         }
 
         handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshStagedFiles()
+        isBubbleEnabled.value = BubblePreferences.isBubbleEnabled(this) && BubblePreferences.canDrawOverlays(this)
     }
 
     override fun onDestroy() {
@@ -128,7 +177,7 @@ class BatchShareActivity : ComponentActivity() {
             Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
                 val uris = extractUrisFromIntent(intent)
                 if (uris.isNotEmpty()) {
-                    stageUris(uris)
+                    stageUris(uris, isExternalShare = true)
                 }
             }
         }
@@ -165,6 +214,7 @@ class BatchShareActivity : ComponentActivity() {
                 if (success) {
                     filesList.clear()
                     NotificationHelper.cancelNotification(this@BatchShareActivity)
+                    FloatingBubbleService.stop(this@BatchShareActivity)
                     finishAndRemoveTask()
                 }
             }
@@ -184,13 +234,14 @@ class BatchShareActivity : ComponentActivity() {
                 if (success) {
                     filesList.clear()
                     NotificationHelper.cancelNotification(this@BatchShareActivity)
+                    FloatingBubbleService.stop(this@BatchShareActivity)
                     finishAndRemoveTask()
                 }
             }
         }
     }
 
-    private fun stageUris(uris: List<Uri>) {
+    private fun stageUris(uris: List<Uri>, isExternalShare: Boolean = false) {
         isLoading.value = true
         lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -202,6 +253,13 @@ class BatchShareActivity : ComponentActivity() {
 
             NotificationHelper.updateNotification(this@BatchShareActivity, filesList)
 
+            val canBubble = BubblePreferences.isBubbleEnabled(this@BatchShareActivity) &&
+                    BubblePreferences.canDrawOverlays(this@BatchShareActivity)
+
+            if (canBubble) {
+                FloatingBubbleService.update(this@BatchShareActivity)
+            }
+
             val toastText = when {
                 result.duplicateCount > 0 && result.addedCount == 0 -> {
                     if (result.duplicateCount == 1) {
@@ -211,10 +269,10 @@ class BatchShareActivity : ComponentActivity() {
                     }
                 }
                 result.duplicateCount > 0 && result.addedCount > 0 -> {
-                    "Added ${result.addedCount} file${if (result.addedCount == 1) "" else "s"} (${result.duplicateCount} duplicate skipped)"
+                    "Staged ${result.addedCount} file${if (result.addedCount == 1) "" else "s"}${if (canBubble) " to bubble 🫧" else ""} (${result.duplicateCount} duplicate skipped)"
                 }
                 result.addedCount > 0 -> {
-                    "Holding ${filesList.size} file${if (filesList.size == 1) "" else "s"}"
+                    "Staged ${filesList.size} file${if (filesList.size == 1) "" else "s"}${if (canBubble) " to bubble 🫧" else ""}"
                 }
                 else -> {
                     "Holding ${filesList.size} file${if (filesList.size == 1) "" else "s"}"
@@ -222,6 +280,11 @@ class BatchShareActivity : ComponentActivity() {
             }
 
             Toast.makeText(this@BatchShareActivity, toastText, Toast.LENGTH_SHORT).show()
+
+            if (isExternalShare && canBubble) {
+                // Immediately return user to WhatsApp / Telegram / source app!
+                finishAndRemoveTask()
+            }
         }
     }
 
