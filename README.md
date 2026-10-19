@@ -108,7 +108,7 @@ BatchShare is designed with a **privacy-first** architecture:
 
 ## 👤 Author & Credits
 
-- **Developer**: **D!g!†@L G#0$†** ([@papa24-afk](https://github.com/papa24-afk))
+- **Developer**: **D!g!†&#64;L G#0$†** ([@papa24-afk](https://github.com/papa24-afk))
 - **Repository**: [https://github.com/papa24-afk/batchshare](https://github.com/papa24-afk/batchshare)
 
 ---
