@@ -1,21 +1,24 @@
 package com.batchshare.wa.core
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
+import android.graphics.drawable.RippleDrawable
 import android.os.Build
 import android.os.IBinder
 import android.text.TextUtils
-import android.util.DisplayMetrics
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -96,7 +99,7 @@ class FloatingBubbleService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var windowManager: WindowManager? = null
 
-    // Views
+    // Overlay Views
     private var bubbleContainer: FrameLayout? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
 
@@ -108,8 +111,9 @@ class FloatingBubbleService : Service() {
 
     private var badgeView: TextView? = null
     private var isTrayExpanded = false
+    private var isOverDismissZone = false
 
-    // Staged files cache
+    // Files
     private var currentFiles = listOf<File>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -122,12 +126,15 @@ class FloatingBubbleService : Service() {
         val initialFiles = FileCollector.getStagedFiles(this)
         val notif = NotificationHelper.buildNotification(this, initialFiles)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NotificationHelper.NOTIFICATION_ID, notif, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            startForeground(
+                NotificationHelper.NOTIFICATION_ID,
+                notif,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
         } else {
             startForeground(NotificationHelper.NOTIFICATION_ID, notif)
         }
 
-        // Hook up listener so external clear notifies the bubble
         NotificationActionReceiver.onFilesClearedListener = {
             serviceScope.launch {
                 refreshFilesAndUI()
@@ -169,7 +176,6 @@ class FloatingBubbleService : Service() {
             return
         }
 
-        // Keep foreground service notification active
         NotificationHelper.updateNotification(this, currentFiles)
 
         if (bubbleContainer == null) {
@@ -198,13 +204,13 @@ class FloatingBubbleService : Service() {
     }
 
     // -------------------------------------------------------------
-    // Bubble View Creation & Touch Handling
+    // Bubble View: Native Material 3 Touch & Appearance
     // -------------------------------------------------------------
     @SuppressLint("ClickableViewAccessibility")
     private fun createBubbleView() {
         val wm = windowManager ?: return
 
-        val bubbleSize = dpToPx(62)
+        val bubbleSize = dpToPx(56)
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -221,7 +227,7 @@ class FloatingBubbleService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = getScreenWidth() - bubbleSize - dpToPx(12)
+            x = getScreenWidth() - bubbleSize - dpToPx(8)
             y = getScreenHeight() / 3
         }
         bubbleParams = params
@@ -230,50 +236,47 @@ class FloatingBubbleService : Service() {
             layoutParams = ViewGroup.LayoutParams(bubbleSize, bubbleSize)
         }
 
-        // Circular background with subtle glow border
-        val iconSize = dpToPx(52)
+        // Circular background with subtle dark border
+        val iconSize = dpToPx(50)
         val iconImageView = ImageView(this).apply {
             setImageResource(R.mipmap.ic_launcher_round)
             scaleType = ImageView.ScaleType.FIT_CENTER
             val iconBg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#0A0F1D"))
-                setStroke(dpToPx(2), Color.parseColor("#00D2FF"))
+                setColor(Color.parseColor("#0F172A")) // Slate 900
+                setStroke(dpToPx(1f), Color.parseColor("#334155")) // Slate 700 subtle outline
             }
             background = iconBg
-            val p = FrameLayout.LayoutParams(iconSize, iconSize).apply {
+            layoutParams = FrameLayout.LayoutParams(iconSize, iconSize).apply {
                 gravity = Gravity.CENTER
             }
-            layoutParams = p
-            elevation = dpToPx(8).toFloat()
+            elevation = dpToPx(6).toFloat()
         }
         container.addView(iconImageView)
 
-        // Count Badge
-        val badgeSize = dpToPx(22)
+        // Count Badge (Clean Material 3 Pill)
         val badge = TextView(this).apply {
-            textSize = 11f
-            setTextColor(Color.BLACK)
-            typeface = Typeface.DEFAULT_BOLD
+            textSize = 10.5f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
             val badgeBg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#00E5FF"))
-                setStroke(dpToPx(1.5f), Color.WHITE)
+                setColor(Color.parseColor("#2563EB")) // Primary Blue
+                setStroke(dpToPx(1.5f), Color.parseColor("#0F172A")) // Notch cutout ring
             }
             background = badgeBg
-            val bp = FrameLayout.LayoutParams(badgeSize, badgeSize).apply {
+            layoutParams = FrameLayout.LayoutParams(dpToPx(20), dpToPx(20)).apply {
                 gravity = Gravity.TOP or Gravity.END
-                marginEnd = dpToPx(2)
-                topMargin = dpToPx(2)
+                marginEnd = dpToPx(0)
+                topMargin = dpToPx(0)
             }
-            layoutParams = bp
-            elevation = dpToPx(10).toFloat()
+            elevation = dpToPx(8).toFloat()
         }
         badgeView = badge
         container.addView(badge)
 
-        // Dragging & Click Listener
+        // Dragging & Edge Snapping
         val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
         var initialX = 0
         var initialY = 0
@@ -281,7 +284,7 @@ class FloatingBubbleService : Service() {
         var initialTouchY = 0f
         var isDragging = false
 
-        container.setOnTouchListener { _, event ->
+        container.setOnTouchListener { v, event ->
             val curParams = bubbleParams ?: return@setOnTouchListener false
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -307,12 +310,16 @@ class FloatingBubbleService : Service() {
                         try {
                             wm.updateViewLayout(container, curParams)
                         } catch (e: Exception) {
-                            // View might be detached
+                            // Detached
                         }
 
                         // Check dismiss target proximity
                         val inDismiss = isOverDismissTarget(curParams.x, curParams.y)
-                        highlightDismissTarget(inDismiss)
+                        if (inDismiss != isOverDismissZone) {
+                            isOverDismissZone = inDismiss
+                            highlightDismissTarget(inDismiss)
+                            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                        }
                     }
                     true
                 }
@@ -321,17 +328,17 @@ class FloatingBubbleService : Service() {
                         showDismissView(false)
                         val inDismiss = isOverDismissTarget(curParams.x, curParams.y)
                         if (inDismiss) {
-                            // Dismissed!
+                            v.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                             FileCollector.clearStagedFiles(this)
                             NotificationHelper.cancelNotification(this)
-                            Toast.makeText(this, "Cleared holding box", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Staging tray cleared", Toast.LENGTH_SHORT).show()
                             shutdownService()
                         } else {
-                            // Snap to nearest edge
+                            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                             snapBubbleToEdge(curParams.x)
                         }
                     } else {
-                        // Tap / Click!
+                        v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                         toggleMiniTray()
                     }
                     true
@@ -359,8 +366,8 @@ class FloatingBubbleService : Service() {
         val params = bubbleParams ?: return
 
         val screenW = getScreenWidth()
-        val bubbleSize = dpToPx(62)
-        val margin = dpToPx(8)
+        val bubbleSize = dpToPx(56)
+        val margin = dpToPx(6)
         val targetX = if (currentX + bubbleSize / 2 < screenW / 2) {
             margin
         } else {
@@ -368,7 +375,7 @@ class FloatingBubbleService : Service() {
         }
 
         val anim = ValueAnimator.ofInt(currentX, targetX).apply {
-            duration = 200
+            duration = 180
             interpolator = DecelerateInterpolator()
             addUpdateListener { va ->
                 params.x = va.animatedValue as Int
@@ -396,11 +403,11 @@ class FloatingBubbleService : Service() {
     }
 
     // -------------------------------------------------------------
-    // Dismiss Target (Bottom Red ✕ Drop Zone)
+    // Dismiss Target: Sleek Frosted Pill at Bottom Center
     // -------------------------------------------------------------
     private fun createDismissView() {
         val wm = windowManager ?: return
-        val size = dpToPx(64)
+        val size = dpToPx(54)
         val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -418,7 +425,7 @@ class FloatingBubbleService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = dpToPx(48)
+            y = dpToPx(40)
         }
         dismissParams = params
 
@@ -426,25 +433,25 @@ class FloatingBubbleService : Service() {
             visibility = View.GONE
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.parseColor("#E11D48")) // Modern red
-                setStroke(dpToPx(2), Color.WHITE)
+                setColor(Color.parseColor("#1C1917")) // Dark Charcoal
+                setStroke(dpToPx(1f), Color.parseColor("#44403C"))
             }
             background = bg
-            elevation = dpToPx(12).toFloat()
+            elevation = dpToPx(10).toFloat()
         }
 
-        val crossText = TextView(this).apply {
-            text = "✕"
-            textSize = 24f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
+        val closeIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_bubble_close)
+            setColorFilter(Color.parseColor("#A8A29E"))
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            val pad = dpToPx(16)
+            setPadding(pad, pad, pad, pad)
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
         }
-        container.addView(crossText)
+        container.addView(closeIcon)
 
         dismissContainer = container
         try {
@@ -455,38 +462,48 @@ class FloatingBubbleService : Service() {
     }
 
     private fun showDismissView(show: Boolean) {
-        dismissContainer?.visibility = if (show) View.VISIBLE else View.GONE
+        val view = dismissContainer ?: return
+        if (show) {
+            view.alpha = 0f
+            view.visibility = View.VISIBLE
+            view.animate().alpha(1f).setDuration(120).start()
+        } else {
+            view.animate().alpha(0f).setDuration(120).withEndAction {
+                view.visibility = View.GONE
+            }.start()
+        }
     }
 
     private fun isOverDismissTarget(bubbleX: Int, bubbleY: Int): Boolean {
         val screenW = getScreenWidth()
         val screenH = getScreenHeight()
         val dismissCenterX = screenW / 2
-        val dismissCenterY = screenH - dpToPx(48) - dpToPx(32)
+        val dismissCenterY = screenH - dpToPx(40) - dpToPx(27)
 
-        val bubbleCenterX = bubbleX + dpToPx(31)
-        val bubbleCenterY = bubbleY + dpToPx(31)
+        val bubbleCenterX = bubbleX + dpToPx(28)
+        val bubbleCenterY = bubbleY + dpToPx(28)
 
         val distSq = (bubbleCenterX - dismissCenterX) * (bubbleCenterX - dismissCenterX) +
                 (bubbleCenterY - dismissCenterY) * (bubbleCenterY - dismissCenterY)
 
-        val threshold = dpToPx(80)
+        val threshold = dpToPx(72)
         return distSq < (threshold * threshold)
     }
 
     private fun highlightDismissTarget(highlight: Boolean) {
         dismissContainer?.let { view ->
             val bg = view.background as? GradientDrawable ?: return
+            val icon = view.getChildAt(0) as? ImageView ?: return
             if (highlight) {
-                bg.setColor(Color.parseColor("#BE123C"))
-                bg.setStroke(dpToPx(3), Color.YELLOW)
-                view.scaleX = 1.2f
-                view.scaleY = 1.2f
+                bg.setColor(Color.parseColor("#7F1D1D")) // Deep Crimson
+                bg.setStroke(dpToPx(1.5f), Color.parseColor("#EF4444"))
+                icon.setColorFilter(Color.WHITE)
+                view.animate().scaleX(1.15f).scaleY(1.15f).setDuration(100).start()
             } else {
-                bg.setColor(Color.parseColor("#E11D48"))
-                bg.setStroke(dpToPx(2), Color.WHITE)
-                view.scaleX = 1.0f
-                view.scaleY = 1.0f
+                bg.setColor(Color.parseColor("#1C1917"))
+                bg.setStroke(dpToPx(1f), Color.parseColor("#44403C"))
+                icon.setColorFilter(Color.parseColor("#A8A29E"))
+                view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start()
             }
         }
     }
@@ -504,7 +521,7 @@ class FloatingBubbleService : Service() {
     }
 
     // -------------------------------------------------------------
-    // Expandable Mini-Tray Modal
+    // Mini-Tray: Material 3 Bottom Sheet / Card
     // -------------------------------------------------------------
     private fun toggleMiniTray() {
         if (isTrayExpanded) {
@@ -535,33 +552,33 @@ class FloatingBubbleService : Service() {
         )
         trayParams = params
 
-        // Scrim background
+        // Translucent background scrim
         val scrim = FrameLayout(this).apply {
-            setBackgroundColor(Color.parseColor("#990B0F19"))
+            setBackgroundColor(Color.parseColor("#80000000"))
             setOnClickListener {
                 closeMiniTray()
             }
         }
 
-        // Card Container
-        val cardW = minOf(getScreenWidth() - dpToPx(32), dpToPx(340))
+        // Bottom-anchored Sheet Container
+        val sheetW = minOf(getScreenWidth() - dpToPx(24), dpToPx(380))
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val cardBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(24).toFloat()
-                setColor(Color.parseColor("#111827"))
-                setStroke(dpToPx(1.5f), Color.parseColor("#1F2937"))
+                cornerRadius = dpToPx(20).toFloat()
+                setColor(Color.parseColor("#0F172A")) // Deep Slate 900
+                setStroke(dpToPx(1f), Color.parseColor("#1E293B")) // Slate 800
             }
             background = cardBg
-            elevation = dpToPx(20).toFloat()
-            setPadding(dpToPx(18), dpToPx(18), dpToPx(18), dpToPx(18))
+            elevation = dpToPx(24).toFloat()
+            setPadding(dpToPx(16), dpToPx(12), dpToPx(16), dpToPx(16))
             isClickable = true
             isFocusable = true
-            val lp = FrameLayout.LayoutParams(cardW, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(sheetW, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+                bottomMargin = dpToPx(24)
             }
-            layoutParams = lp
         }
 
         scrim.addView(card)
@@ -573,12 +590,33 @@ class FloatingBubbleService : Service() {
             e.printStackTrace()
         }
 
+        // Animate slide up
+        card.translationY = dpToPx(100).toFloat()
+        card.alpha = 0f
+        card.animate().translationY(0f).alpha(1f).setDuration(200).setInterpolator(DecelerateInterpolator()).start()
+
         updateTrayContent()
     }
 
     private fun closeMiniTray() {
-        isTrayExpanded = false
-        removeTrayView()
+        val scrim = trayContainer ?: return
+        val card = scrim.getChildAt(0) as? LinearLayout
+        if (card != null) {
+            card.animate()
+                .translationY(dpToPx(80).toFloat())
+                .alpha(0f)
+                .setDuration(150)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        isTrayExpanded = false
+                        removeTrayView()
+                    }
+                })
+                .start()
+        } else {
+            isTrayExpanded = false
+            removeTrayView()
+        }
     }
 
     private fun removeTrayView() {
@@ -608,7 +646,22 @@ class FloatingBubbleService : Service() {
         val totalBytes = currentFiles.sumOf { it.length() }
         val sizeStr = formatFileSize(totalBytes)
 
-        // 1. Header (BatchShare • 3 files • 4.2 MB)
+        // 0. Drag Handle Indicator
+        val dragHandle = View(this).apply {
+            val hBg = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dpToPx(2).toFloat()
+                setColor(Color.parseColor("#334155")) // Slate 700
+            }
+            background = hBg
+            layoutParams = LinearLayout.LayoutParams(dpToPx(36), dpToPx(4)).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dpToPx(12)
+            }
+        }
+        card.addView(dragHandle)
+
+        // 1. Header (Staged Files • X items • X MB)
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -622,10 +675,9 @@ class FloatingBubbleService : Service() {
 
         val icon = ImageView(this).apply {
             setImageResource(R.mipmap.ic_launcher_round)
-            val ip = LinearLayout.LayoutParams(dpToPx(28), dpToPx(28)).apply {
+            layoutParams = LinearLayout.LayoutParams(dpToPx(26), dpToPx(26)).apply {
                 marginEnd = dpToPx(10)
             }
-            layoutParams = ip
         }
         headerRow.addView(icon)
 
@@ -634,41 +686,41 @@ class FloatingBubbleService : Service() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val titleText = TextView(this).apply {
-            text = "BatchShare"
-            textSize = 17f
+            text = "Staged Queue"
+            textSize = 15f
             setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
         val subText = TextView(this).apply {
-            text = "${currentFiles.size} files held • $sizeStr"
+            text = "${currentFiles.size} ${if (currentFiles.size == 1) "file" else "files"} • $sizeStr"
             textSize = 12f
-            setTextColor(Color.parseColor("#9CA3AF"))
+            setTextColor(Color.parseColor("#94A3B8")) // Slate 400
         }
         headerTextLayout.addView(titleText)
         headerTextLayout.addView(subText)
         headerRow.addView(headerTextLayout)
 
-        val closeBtn = TextView(this).apply {
-            text = "✕"
-            textSize = 18f
-            setTextColor(Color.parseColor("#9CA3AF"))
-            gravity = Gravity.CENTER
-            setPadding(dpToPx(8), dpToPx(4), dpToPx(4), dpToPx(4))
+        val closeBtn = ImageView(this).apply {
+            setImageResource(R.drawable.ic_bubble_close)
+            setColorFilter(Color.parseColor("#94A3B8"))
+            background = makeRippleBackground(Color.parseColor("#1E293B"), dpToPx(16))
+            val pad = dpToPx(8)
+            setPadding(pad, pad, pad, pad)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(32), dpToPx(32))
             setOnClickListener { closeMiniTray() }
         }
         headerRow.addView(closeBtn)
         card.addView(headerRow)
 
-        // 2. Scrollable File List (max 4 files tall)
+        // 2. Scrollable File List (max 180dp height)
         val scrollView = ScrollView(this).apply {
-            val maxListH = dpToPx(180)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dpToPx(14)
+                bottomMargin = dpToPx(12)
             }
-            isVerticalScrollBarEnabled = true
+            isVerticalScrollBarEnabled = false
         }
 
         val fileListCol = LinearLayout(this).apply {
@@ -686,7 +738,7 @@ class FloatingBubbleService : Service() {
         scrollView.addView(fileListCol)
         card.addView(scrollView)
 
-        // 3. Action Buttons Row: [ ⚡ Zip & Share ] [ 📤 Raw ]
+        // 3. Primary & Secondary Action Row: [ Zip & Share ] [ Share Raw ]
         val actionsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -697,24 +749,18 @@ class FloatingBubbleService : Service() {
             }
         }
 
-        // Primary Zip & Share button
+        // Primary: Zip & Share
         val zipBtn = TextView(this).apply {
-            text = "⚡ Zip & Share"
-            textSize = 14f
-            setTextColor(Color.parseColor("#0A0F1D"))
-            typeface = Typeface.DEFAULT_BOLD
+            text = "Zip & Share"
+            textSize = 13.5f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(Color.parseColor("#00D2FF"))
-            }
-            background = btnBg
-            setPadding(0, dpToPx(12), 0, dpToPx(12))
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f).apply {
+            background = makeRippleBackground(Color.parseColor("#2563EB"), dpToPx(10))
+            setPadding(0, dpToPx(11), 0, dpToPx(11))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f).apply {
                 marginEnd = dpToPx(8)
             }
-            layoutParams = lp
 
             setOnClickListener {
                 closeMiniTray()
@@ -731,23 +777,16 @@ class FloatingBubbleService : Service() {
         }
         actionsRow.addView(zipBtn)
 
-        // Share Raw button
+        // Secondary: Share Raw
         val rawBtn = TextView(this).apply {
-            text = "📤 Raw"
-            textSize = 14f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            text = "Share Raw"
+            textSize = 13.5f
+            setTextColor(Color.parseColor("#E2E8F0"))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
-            val btnBg = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(12).toFloat()
-                setColor(Color.parseColor("#1F2937"))
-                setStroke(dpToPx(1), Color.parseColor("#374151"))
-            }
-            background = btnBg
-            setPadding(0, dpToPx(12), 0, dpToPx(12))
-            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f)
-            layoutParams = lp
+            background = makeRippleBackground(Color.parseColor("#1E293B"), dpToPx(10), strokeColor = Color.parseColor("#334155"))
+            setPadding(0, dpToPx(11), 0, dpToPx(11))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
 
             setOnClickListener {
                 closeMiniTray()
@@ -765,8 +804,8 @@ class FloatingBubbleService : Service() {
         actionsRow.addView(rawBtn)
         card.addView(actionsRow)
 
-        // 4. Secondary actions row: [ 🗑️ Clear ] and [ ↗️ More Options / Encryption ]
-        val subActionsRow = LinearLayout(this).apply {
+        // 4. Subtle Footer: [ Clear queue ] and [ Options ]
+        val footerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -776,32 +815,32 @@ class FloatingBubbleService : Service() {
         }
 
         val clearBtn = TextView(this).apply {
-            text = "🗑️ Clear"
+            text = "Clear queue"
             textSize = 12f
-            setTextColor(Color.parseColor("#EF4444"))
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(dpToPx(4), dpToPx(4), dpToPx(8), dpToPx(4))
+            setTextColor(Color.parseColor("#F87171")) // Soft Red
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dpToPx(4), dpToPx(6), dpToPx(8), dpToPx(6))
             setOnClickListener {
                 FileCollector.clearStagedFiles(this@FloatingBubbleService)
                 NotificationHelper.cancelNotification(this@FloatingBubbleService)
-                Toast.makeText(this@FloatingBubbleService, "Cleared holding box", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@FloatingBubbleService, "Queue cleared", Toast.LENGTH_SHORT).show()
                 closeMiniTray()
                 shutdownService()
             }
         }
-        subActionsRow.addView(clearBtn)
+        footerRow.addView(clearBtn)
 
         val spacer = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
         }
-        subActionsRow.addView(spacer)
+        footerRow.addView(spacer)
 
-        val openAppBtn = TextView(this).apply {
-            text = "⚙️ Passwords & Options ↗"
+        val optionsBtn = TextView(this).apply {
+            text = "Archive options"
             textSize = 12f
-            setTextColor(Color.parseColor("#60A5FA"))
-            typeface = Typeface.DEFAULT_BOLD
-            setPadding(dpToPx(8), dpToPx(4), dpToPx(4), dpToPx(4))
+            setTextColor(Color.parseColor("#94A3B8")) // Slate 400
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dpToPx(8), dpToPx(6), dpToPx(4), dpToPx(6))
             setOnClickListener {
                 closeMiniTray()
                 val openIntent = Intent(this@FloatingBubbleService, BatchShareActivity::class.java).apply {
@@ -810,8 +849,8 @@ class FloatingBubbleService : Service() {
                 startActivity(openIntent)
             }
         }
-        subActionsRow.addView(openAppBtn)
-        card.addView(subActionsRow)
+        footerRow.addView(optionsBtn)
+        card.addView(footerRow)
     }
 
     private fun createFileRow(file: File): View {
@@ -820,49 +859,46 @@ class FloatingBubbleService : Service() {
             gravity = Gravity.CENTER_VERTICAL
             val rowBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(10).toFloat()
-                setColor(Color.parseColor("#1F2937").and(0x66FFFFFF))
+                cornerRadius = dpToPx(8).toFloat()
+                setColor(Color.parseColor("#1E293B")) // Slate 800
             }
             background = rowBg
-            setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
-            val lp = LinearLayout.LayoutParams(
+            setPadding(dpToPx(10), dpToPx(8), dpToPx(10), dpToPx(8))
+            layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 bottomMargin = dpToPx(6)
             }
-            layoutParams = lp
         }
 
-        // Badge
+        // Tonal Chip for File Extension
         val ext = file.extension.uppercase()
-        val badgeColor = when (ext) {
-            "PDF" -> Color.parseColor("#EF4444")
-            "JPG", "JPEG", "PNG", "WEBP", "GIF" -> Color.parseColor("#06B6D4")
-            "MP4", "MKV", "MOV" -> Color.parseColor("#A855F7")
-            "MP3", "M4A", "WAV" -> Color.parseColor("#10B981")
-            "APK" -> Color.parseColor("#F97316")
-            "ZIP", "RAR", "7Z" -> Color.parseColor("#F59E0B")
-            else -> Color.parseColor("#3B82F6")
+        val (badgeBgColor, badgeTextColor) = when (ext) {
+            "PDF" -> Pair(Color.parseColor("#3B1A1E"), Color.parseColor("#F87171"))
+            "JPG", "JPEG", "PNG", "WEBP", "GIF" -> Pair(Color.parseColor("#0E2E3B"), Color.parseColor("#38BDF8"))
+            "MP4", "MKV", "MOV" -> Pair(Color.parseColor("#2E1065"), Color.parseColor("#C084FC"))
+            "MP3", "M4A", "WAV" -> Pair(Color.parseColor("#052E16"), Color.parseColor("#4ADE80"))
+            "APK", "ZIP", "RAR", "7Z" -> Pair(Color.parseColor("#451A03"), Color.parseColor("#FBBF24"))
+            else -> Pair(Color.parseColor("#172554"), Color.parseColor("#60A5FA"))
         }
 
         val badge = TextView(this).apply {
-            text = if (ext.length > 3) ext.take(3) else ext.ifEmpty { "FILE" }
-            textSize = 9f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD
+            text = if (ext.length > 3) ext.take(3) else ext.ifEmpty { "DOC" }
+            textSize = 9.5f
+            setTextColor(badgeTextColor)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             gravity = Gravity.CENTER
             val bBg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                cornerRadius = dpToPx(6).toFloat()
-                setColor(badgeColor)
+                cornerRadius = dpToPx(4).toFloat()
+                setColor(badgeBgColor)
             }
             background = bBg
-            setPadding(dpToPx(6), dpToPx(2), dpToPx(6), dpToPx(2))
-            val bp = LinearLayout.LayoutParams(dpToPx(34), dpToPx(20)).apply {
-                marginEnd = dpToPx(8)
+            setPadding(dpToPx(4), dpToPx(2), dpToPx(4), dpToPx(2))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(32), dpToPx(18)).apply {
+                marginEnd = dpToPx(10)
             }
-            layoutParams = bp
         }
         row.addView(badge)
 
@@ -874,26 +910,28 @@ class FloatingBubbleService : Service() {
 
         val nameView = TextView(this).apply {
             text = file.name
-            textSize = 12f
-            setTextColor(Color.WHITE)
+            textSize = 12.5f
+            setTextColor(Color.parseColor("#F1F5F9"))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
         }
         val sizeView = TextView(this).apply {
             text = formatFileSize(file.length())
-            textSize = 10f
-            setTextColor(Color.parseColor("#9CA3AF"))
+            textSize = 10.5f
+            setTextColor(Color.parseColor("#64748B")) // Slate 500
         }
         infoCol.addView(nameView)
         infoCol.addView(sizeView)
         row.addView(infoCol)
 
-        // Remove (X) button
-        val removeBtn = TextView(this).apply {
-            text = "✕"
-            textSize = 13f
-            setTextColor(Color.parseColor("#6B7280"))
-            setPadding(dpToPx(6), dpToPx(4), dpToPx(6), dpToPx(4))
+        // Delete button
+        val removeBtn = ImageView(this).apply {
+            setImageResource(R.drawable.ic_bubble_close)
+            setColorFilter(Color.parseColor("#64748B"))
+            val pad = dpToPx(6)
+            setPadding(pad, pad, pad, pad)
+            layoutParams = LinearLayout.LayoutParams(dpToPx(26), dpToPx(26))
             setOnClickListener {
                 FileCollector.removeStagedFile(this@FloatingBubbleService, file)
                 refreshFilesAndUI()
@@ -902,6 +940,30 @@ class FloatingBubbleService : Service() {
         row.addView(removeBtn)
 
         return row
+    }
+
+    // -------------------------------------------------------------
+    // Ripple Background Helper
+    // -------------------------------------------------------------
+    private fun makeRippleBackground(bgColor: Int, cornerRadiusPx: Int, strokeColor: Int? = null): RippleDrawable {
+        val shape = GradientDrawable().apply {
+            this.shape = GradientDrawable.RECTANGLE
+            this.cornerRadius = cornerRadiusPx.toFloat()
+            setColor(bgColor)
+            if (strokeColor != null) {
+                setStroke(dpToPx(1f), strokeColor)
+            }
+        }
+        val mask = GradientDrawable().apply {
+            this.shape = GradientDrawable.RECTANGLE
+            this.cornerRadius = cornerRadiusPx.toFloat()
+            setColor(Color.WHITE)
+        }
+        return RippleDrawable(
+            ColorStateList.valueOf(Color.parseColor("#26FFFFFF")),
+            shape,
+            mask
+        )
     }
 
     // -------------------------------------------------------------

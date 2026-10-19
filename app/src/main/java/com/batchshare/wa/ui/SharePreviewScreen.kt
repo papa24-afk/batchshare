@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
@@ -496,7 +497,7 @@ fun SharePreviewScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = if (password.isNotBlank()) "🔒 Password Protected • Tap to edit" else "Tap to set name or password",
+                                        text = if (password.isNotBlank()) "Password Protected • Tap to edit" else "Tap to set name or password",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (password.isNotBlank()) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -643,21 +644,34 @@ fun FloatingBubbleToggleCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = "🫧",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(
+                            color = if (isBubbleEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Layers,
+                        contentDescription = null,
+                        tint = if (isBubbleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Floating Bubble Tray",
+                        text = "Floating Staging Bubble",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = if (isBubbleEnabled) "Active on screen • Stay in your chat" else "Disabled • Tap to enable overlay",
+                        text = if (isBubbleEnabled) "Active • Quick staging overlay across all apps" else "Disabled • Tap to enable overlay",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isBubbleEnabled) Color(0xFF00D2FF) else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isBubbleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -666,8 +680,9 @@ fun FloatingBubbleToggleCard(
                 onCheckedChange = { onToggleBubble(it) },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF0070F3),
-                    checkedBorderColor = Color(0xFF00D2FF)
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }

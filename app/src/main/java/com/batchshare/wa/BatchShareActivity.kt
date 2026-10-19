@@ -59,7 +59,7 @@ class BatchShareActivity : ComponentActivity() {
         val granted = BubblePreferences.canDrawOverlays(this)
         isBubbleEnabled.value = granted && BubblePreferences.isBubbleEnabled(this)
         if (granted) {
-            Toast.makeText(this, "Floating Bubble enabled 🫧", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Floating bubble enabled", Toast.LENGTH_SHORT).show()
             if (filesList.isNotEmpty()) {
                 FloatingBubbleService.start(this)
             }
@@ -123,7 +123,7 @@ class BatchShareActivity : ComponentActivity() {
                             if (BubblePreferences.canDrawOverlays(this)) {
                                 BubblePreferences.setBubbleEnabled(this, true)
                                 isBubbleEnabled.value = true
-                                Toast.makeText(this, "Floating Bubble enabled 🫧", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Floating bubble enabled", Toast.LENGTH_SHORT).show()
                                 if (filesList.isNotEmpty()) {
                                     FloatingBubbleService.start(this)
                                 }
@@ -134,7 +134,7 @@ class BatchShareActivity : ComponentActivity() {
                             BubblePreferences.setBubbleEnabled(this, false)
                             isBubbleEnabled.value = false
                             FloatingBubbleService.stop(this)
-                            Toast.makeText(this, "Floating Bubble disabled", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Floating bubble disabled", Toast.LENGTH_SHORT).show()
                         }
                     },
                     isLoading = isLoading.value
@@ -269,10 +269,10 @@ class BatchShareActivity : ComponentActivity() {
                     }
                 }
                 result.duplicateCount > 0 && result.addedCount > 0 -> {
-                    "Staged ${result.addedCount} file${if (result.addedCount == 1) "" else "s"}${if (canBubble) " to bubble 🫧" else ""} (${result.duplicateCount} duplicate skipped)"
+                    "Staged ${result.addedCount} file${if (result.addedCount == 1) "" else "s"} (${result.duplicateCount} duplicate skipped)"
                 }
                 result.addedCount > 0 -> {
-                    "Staged ${filesList.size} file${if (filesList.size == 1) "" else "s"}${if (canBubble) " to bubble 🫧" else ""}"
+                    "Staged ${filesList.size} file${if (filesList.size == 1) "" else "s"}"
                 }
                 else -> {
                     "Holding ${filesList.size} file${if (filesList.size == 1) "" else "s"}"
