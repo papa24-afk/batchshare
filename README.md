@@ -6,14 +6,14 @@
 
 <p align="center">
   <a href="https://github.com/papa24-afk/batchshare/releases/latest"><img src="https://img.shields.io/github/v/release/papa24-afk/batchshare?color=blue&label=Release" alt="Latest Release"></a>
-  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android%208.0%2B-brightgreen" alt="Platform"></a>
+  <img src="https://img.shields.io/badge/Platform-Android%20%7C%20Windows-brightgreen" alt="Platform: Android & Windows">
   <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-1.9.22-purple" alt="Kotlin"></a>
-  <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4" alt="Jetpack Compose"></a>
+  <a href="https://developer.android.com/jetpack/compose"><img src="https://img.shields.io/badge/UI-Compose%20Multiplatform-4285F4" alt="Compose Multiplatform"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
-> **The ultimate Android staging tray & zip bundler.**  
-> Effortlessly collect, bundle, and share multiple documents and files from **WhatsApp, Telegram, Google Drive, Chrome, and your File Manager** to any app — without restrictions.
+> **The ultimate cross-platform staging tray & zip bundler for Android & Windows.**  
+> Effortlessly collect, bundle, and share multiple documents and files from **WhatsApp, Telegram, Google Drive, Chrome, and your File Explorer** to any app — without restrictions.
 
 ---
 
@@ -36,26 +36,30 @@ It works seamlessly with **any app** on your phone:
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features (Android & Windows)
 
-- **Floating Staging Bubble (System Overlay)**: Stay in your flow without context switching. When enabled, incoming shared files stage seamlessly into a discreet, floating draggable bubble anchored to your screen edge with a live counter badge. Tap to expand an authentic Material 3 sheet to Zip & Share, inspect files, or drag down to the bottom dismiss target to clear the queue.
-- 📥 **Universal Holding Box**: Accumulate files from WhatsApp, Telegram, Chrome, Gallery, or Downloads one-by-one or in batches.
-- 🗜️ **Fast Zip & Share**: Compress all staged documents into a clean `.zip` archive in a split second.
-- 📂 **Share Raw (Unzipped)**: Prefer not to zip? Tap **Share Raw** to send all your files individually at once directly to Telegram or other apps.
-- 🏷️ **1-Tap Archive Renaming**: Customize your zip name (e.g. `Client_Invoices.zip`, `Project_Docs.zip`) or pick from 1-tap quick suggestions (`Documents`, `Photos`, `Work`, `Archive`).
-- 🔒 **AES-256 Password Encryption**: Protect sensitive contracts, financial receipts, or personal photos with industry-standard AES-256 encryption.
-- 🚫 **Smart Duplicate Prevention**: Automatic SHA-256 checksum fingerprinting detects and skips files you've already added, keeping your archives clean.
-- 🎨 **Color-Coded File Badges**: Visual recognition for different file types:
+- **Floating Staging Bubble (System Overlay / Desktop Drop Target)**: Stay in your flow without context switching.
+  - **Android**: Incoming shared files stage seamlessly into a discreet, floating draggable bubble anchored to your screen edge with a live counter badge. Tap to expand an authentic Material 3 sheet to Zip & Share, inspect files, or drag down to dismiss.
+  - **Windows**: Always-on-top floating desktop drop target pill at screen edge. Drag & drop files directly from File Explorer, Chrome download bar, or any desktop app onto the bubble.
+- **📋 1-Tap Zip & Copy to Clipboard (Windows)**: Creates the archive and copies it directly as a file to your Windows clipboard. Simply switch to WhatsApp Desktop, Telegram, Discord, or Slack and hit **`Ctrl + V`** to paste and send!
+- **📂 Share Raw (Unzipped)**: Prefer not to zip? Tap **Share Raw** to copy or send all your files individually at once directly to Telegram or other apps.
+- **📥 Universal Holding Box**: Accumulate files from WhatsApp, Telegram, Chrome, Gallery, File Explorer, or Downloads one-by-one or in batches.
+- **🗜️ Fast Zip & Share**: Compress all staged documents into a clean `.zip` archive in a split second.
+- **🏷️ 1-Tap Archive Renaming**: Customize your zip name (e.g. `Client_Invoices.zip`, `Project_Docs.zip`) or pick from 1-tap quick suggestions (`Documents`, `Photos`, `Work`, `Archive`).
+- **🔒 AES-256 Password Encryption**: Protect sensitive contracts, financial receipts, or personal photos with industry-standard AES-256 encryption.
+- **🚫 Smart Duplicate Prevention**: Automatic SHA-256 checksum fingerprinting detects and skips files you've already added, keeping your archives clean.
+- **🖱️ Windows Explorer Context Menu**: Right-click any file or folder in File Explorer -> **"Send to BatchShare"** to stage it instantly.
+- **🔔 Windows System Tray Integration**: Sits quietly in your Windows taskbar tray with quick actions (`Open Tray`, `Toggle Floating Drop Target`, `Clear Queue`, `Exit`).
+- **🎨 Color-Coded File Badges**: Visual recognition for different file types:
   - 📕 **Red (PDF)**: `.pdf`
   - 🖼️ **Cyan (IMG)**: `.jpg`, `.png`, `.webp`, `.heic`, `.gif`
   - 🎬 **Purple (VID)**: `.mp4`, `.mkv`, `.mov`
   - 🎵 **Green (AUD)**: `.mp3`, `.m4a`, `.wav`, `.ogg`
   - 📦 **Orange (APK / ZIP)**: `.apk`, `.zip`, `.rar`, `.7z`
   - 📄 **Blue (DOC)**: `.docx`, `.xlsx`, `.pptx`, `.txt`, `.csv`
-- 👁️ **Tap to Preview**: Tap any file card in the queue to inspect it directly in your phone's default viewer before sending.
-- 🔔 **Silent Status Bar Notification**: A quiet, persistent notification sits in your notification drawer while files are held, with direct **[Zip & Share]** and **[Clear]** actions without opening the app.
-- 🧹 **Auto-Clear & Instant Exit**: Upon sharing, BatchShare cleans out the cache and removes itself from the Recent Apps switcher (`finishAndRemoveTask()`) so you land seamlessly in your target app.
-- 🛡️ **100% Offline & Private**: Zero internet permissions. No ads, no analytics, no background tracking. Your files never leave your device.
+  - 💜 **Violet (CODE)**: `.kt`, `.java`, `.py`, `.c`, `.cpp`, `.cs`, `.js`, `.ts`
+- **👁️ Tap / Click to Preview**: Tap any file card in the queue to inspect it directly in your phone or PC's default viewer before sending.
+- **🛡️ 100% Offline & Private**: Zero internet permissions. No ads, no analytics, no telemetry. Your files never leave your device.
 
 ---
 

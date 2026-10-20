@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "BatchShare"
-include(":app")
+include(":app", ":desktop")
