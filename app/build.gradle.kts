@@ -23,19 +23,41 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("${rootDir}/keystore/release.jks")
-            storePassword = "batchshare123"
-            keyAlias = "batchshare"
-            keyPassword = "batchshare123"
-            enableV1Signing = true
-            enableV2Signing = true
+            // Supply credentials through Gradle properties or environment variables.
+            // Never commit passwords or keystore files to source control.
+            val releaseStorePath = providers.gradleProperty("BATCHSHARE_RELEASE_STORE_FILE")
+                .orElse(providers.environmentVariable("BATCHSHARE_RELEASE_STORE_FILE"))
+            val releaseStorePasswordValue = providers.gradleProperty("BATCHSHARE_RELEASE_STORE_PASSWORD")
+                .orElse(providers.environmentVariable("BATCHSHARE_RELEASE_STORE_PASSWORD"))
+            val releaseKeyAliasValue = providers.gradleProperty("BATCHSHARE_RELEASE_KEY_ALIAS")
+                .orElse(providers.environmentVariable("BATCHSHARE_RELEASE_KEY_ALIAS"))
+            val releaseKeyPasswordValue = providers.gradleProperty("BATCHSHARE_RELEASE_KEY_PASSWORD")
+                .orElse(providers.environmentVariable("BATCHSHARE_RELEASE_KEY_PASSWORD"))
+
+            if (releaseStorePath.isPresent &&
+                releaseStorePasswordValue.isPresent &&
+                releaseKeyAliasValue.isPresent &&
+                releaseKeyPasswordValue.isPresent
+            ) {
+                storeFile = file(releaseStorePath.get())
+                storePassword = releaseStorePasswordValue.get()
+                keyAlias = releaseKeyAliasValue.get()
+                keyPassword = releaseKeyPasswordValue.get()
+                enableV1Signing = true
+                enableV2Signing = true
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            // Developer's own distribution signing is optional for reproducible builds.
+            // If credentials are supplied, sign with the configured release key.
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
